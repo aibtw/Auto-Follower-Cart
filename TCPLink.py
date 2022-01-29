@@ -1,8 +1,11 @@
 import socket
 import time
 import numpy as np
+from pynput import keyboard
 from numpy.core import uint16
 
+steer = 10
+speed = 10
 
 def main():
     print("Program Starting!")
@@ -13,8 +16,6 @@ def main():
     # Receive and send buffer information
     Read_Buffer_size_bytes = 22
 
-    steer = 10
-    speed = 10
 
     # Establish connection
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -42,17 +43,6 @@ def main():
         if len(feedback) >= Read_Buffer_size_bytes:
             # print("message from server:", feedback.decode("UTF-8"))   # For debugging, if sent message is UTF-8
             # print("message from server:", feedback)                   # For debugging, if sent message is numeric
-            # header = feedback[0] << 8 | feedback[1]
-            # cmd1 = feedback[2] << 8 | feedback[3]                       # Current steer
-            # cmd2 = feedback[4] << 8 | feedback[5]                       # Current speed
-            # spdR = feedback[6] << 8 | feedback[7]                       # Motor speed R
-            # spdL = feedback[8] << 8 | feedback[9]                       # Motor speed L
-            # cntR = feedback[10] << 8 | feedback[11]                     # Wheels encoder R
-            # cntL = feedback[12] << 8 | feedback[13]                     # Wheels encoder L
-            # batV = feedback[14] << 8 | feedback[15]                     # Battery voltage
-            # temp = feedback[16] << 8 | feedback[17]                     # Temperature
-            # cmdLED = feedback[18] << 8 | feedback[19]                   # LED
-            # chkSum = feedback[20] << 8 | feedback[21]                   # Error detection
             header = feedback[0:2]
             cmd1 = feedback[2:4]                                        # Current steer
             cmd2 = feedback[4:6]                                        # Current speed
@@ -68,5 +58,44 @@ def main():
             # TODO: Cast all the byte-type variables into the appropriate type (int16-uint16)
 
 
+def on_press(key):
+    global speed
+    global steer
+    if key == keyboard.Key.up:
+        print('up')
+        speed=speed+1
+        print(speed)
+        if speed>50:
+            speed = 50
+    if key == keyboard.Key.down:
+        print('down')
+        speed=speed-1
+        print(speed)
+        if speed<-50:
+            speed = -50
+    if key == keyboard.Key.left:
+        print('left')
+
+    if key == keyboard.Key.right:
+        print('right')
+
+
+def on_release(key):
+    # print('{0} released'.format(
+    #     key))
+    if key == keyboard.Key.esc:
+        # Stop listener
+        return False
+
+
+with keyboard.Listener(
+        on_press=on_press,
+        on_release=on_release) as listener:
+    listener.join()
+print(speed)
+print(steer)
+
 if __name__ == '__main__':
     main()
+
+
