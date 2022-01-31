@@ -7,6 +7,7 @@ from numpy.core import uint16
 steer = 0
 speed = 0
 
+
 def main():
     print("Program Starting!")
 
@@ -15,7 +16,6 @@ def main():
 
     # Receive and send buffer information
     Read_Buffer_size_bytes = 22
-
 
     # Establish connection
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -28,7 +28,7 @@ def main():
         with keyboard.Listener(
                 on_press=on_press,
                 on_release=on_release) as listener:
-            time.sleep(0.2)
+            time.sleep(0.1)
 
         # Send Commands
         start = uint16(43981)                   # Start (2 bytes)
@@ -49,7 +49,6 @@ def main():
             header = feedback[0:2]
             cmd1 = feedback[2:4]                                        # Current steer
             cmd2 = feedback[4:6]                                        # Current speed
-            print(cmd2)
             spdR = feedback[6:8]                                        # Motor speed R
             spdL = feedback[8:10]                                       # Motor speed L
             cntR = feedback[10:12]                                      # Wheels encoder R
@@ -60,66 +59,52 @@ def main():
             chkSum = feedback[20:22]                                    # Error detection
 
             # TODO: Cast all the byte-type variables into the appropriate type (int16-uint16)
-            listener.join
-
+        listener.join
 
 
 def on_press(key):
     global speed
     global steer
     if key == keyboard.Key.up:
-        print('up')
-        speed=speed+1
-        print(speed)
-        if speed>50:
+        speed = speed+1
+        print('up: ' + str(speed))
+        if speed > 50:
             speed = 50
     if key == keyboard.Key.down:
-        print('down')
-        speed=speed-1
-        print(speed)
-        if speed<-50:
+        speed = speed-1
+        print('down: ' + str(speed))
+        if speed < -50:
             speed = -50
     if key == keyboard.Key.left:
-        print('left')
-        steer=steer-1
-        print(steer)
-        if steer<-50:
+        steer = steer-1
+        print('left: ' + str(steer))
+        if steer < -50:
             steer = -50
     if key == keyboard.Key.right:
-        print('right')
-        steer=steer+1
-        print(steer)
-        if steer>50:
+        steer = steer+1
+        print('right: ' + str(steer))
+        if steer > 50:
             steer = 50
 
 
 def on_release(key):
     global speed
     global steer
-    # print('{0} released'.format(
-    #     key))
-    if key == keyboard.Key.esc:
-        # Stop listener
-        return False
+    print('{0} released'.format(key))
     if key == keyboard.Key.up:
-        speed =0
+        speed = 0
     if key == keyboard.Key.down:
-        speed =0
+        speed = 0
     if key == keyboard.Key.right:
-        steer =0
-        speed=0
+        steer = 0
     if key == keyboard.Key.left:
-        steer =0
-        speed=0
+        steer = 0
+
+
 if __name__ == '__main__':
     main()
 
-    # with keyboard.Listener(
-    #         on_press=on_press,
-    #         on_release=on_release) as listener:
-    #     listener.join()
-print(speed)
-print(steer)
+
 
 
 
