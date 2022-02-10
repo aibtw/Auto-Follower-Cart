@@ -4,8 +4,16 @@ import numpy as np
 from pynput import keyboard
 from numpy.core import uint16
 
+
 steer = 0
+# positive steer = clockwise
+
 speed = 0
+# positive Speed = move ahead (push the cart)
+
+# Units:
+# Speed : 110 units = 1m / s
+# steer: 40 units = 30 deg / s
 
 
 def main():
@@ -28,7 +36,7 @@ def main():
         with keyboard.Listener(
                 on_press=on_press,
                 on_release=on_release) as listener:
-            time.sleep(0.1)
+            time.sleep(0.2)
 
         # Send Commands
         start = uint16(43981)                   # Start (2 bytes)
