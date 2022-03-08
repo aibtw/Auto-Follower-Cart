@@ -11,7 +11,7 @@ from cv2 import aruco
 steer = 0
 # positive steer = clockwise
 
-speed = 10
+speed = 0
 # positive Speed = move ahead (push the cart)
 
 # Units:
@@ -32,33 +32,14 @@ def main():
     set_oakd_props(camRGB, xoutVideo)
 
     print("[INFO] Setting up Aruco dictionary and camera coefficients ...")
-    # Get coefficients and camera matrix from yaml calibration file
-    cv_file = cv2.FileStorage("calibration_chessboard.yaml", cv2.FileStorage_READ)
-    camera_matrix = cv_file.getNode('K').mat()
-    distortion_coeffs = cv_file.getNode('D').mat()
-    cv_file.release()
-    # define the type of aruco marker to detect
-    arucoDict = cv2.aruco.Dictionary_get(cv2.aruco.DICT_6X6_250)
-    arucoParams = cv2.aruco.DetectorParameters_create()
+    camera_matrix, distortion_coeffs, arucoDict, arucoParams = aruco_init()
 
     time.sleep(2.0)  # Necessary !!!
 
     print("[INFO] Initializing TCP connection ...")
-    # IP and PORT of the ESP server
-    TCP_IP, TCP_PORT = "192.168.4.1", 8000
-
-    # Receive and send buffer information
-    Read_Buffer_size_bytes = 22
-
-    # Establish connection
-    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    s.connect((TCP_IP, TCP_PORT))
-    s.settimeout(20)
-    print("Connected successfully")
-    print(s.getsockname())
+    s = TCP_init()
 
     # Main loop
-    video = None
     with dai.Device(pipeline) as device:  # used with OAK-D camera
         video = device.getOutputQueue(name="video", maxSize=1, blocking=False)  # establish queue
         while True:
@@ -94,13 +75,37 @@ def main():
             if key == ord("q"):
                 break
             send(s)
-            receive(s, debug=False)
+            receive(s, debug=True)
             # TODO: Determine whether recv function accepts only power-of-2 values (i.e. 32) or it can accept 22 bytes
 
         # listener.join
 
+
+def aruco_init():
+    # Get coefficients and camera matrix from yaml calibration file
+    cv_file = cv2.FileStorage("calibration_chessboard.yaml", cv2.FileStorage_READ)
+    camera_matrix = cv_file.getNode('K').mat()
+    distortion_coeffs = cv_file.getNode('D').mat()
+    cv_file.release()
+    # define the type of aruco marker to detect
+    arucoDict = cv2.aruco.Dictionary_get(cv2.aruco.DICT_6X6_250)
+    arucoParams = cv2.aruco.DetectorParameters_create()
+    return camera_matrix, distortion_coeffs, arucoDict, arucoParams
+
+
 def TCP_init():
-    pass
+    # IP and PORT of the ESP server
+    TCP_IP, TCP_PORT = "192.168.4.1", 8000
+    # Receive and send buffer information
+    Read_Buffer_size_bytes = 22
+    # Establish connection
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.connect((TCP_IP, TCP_PORT))
+    s.settimeout(20)
+    print("Connected successfully")
+    print(s.getsockname())
+    return s
+
 
 def send(s):
     # Send Commands
