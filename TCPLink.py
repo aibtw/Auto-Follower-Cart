@@ -1,9 +1,7 @@
-import argparse
-import sys
 import socket
 import time
 import imutils
-from imutils.video import VideoStream
+import depthai as dai
 from pynput import keyboard
 import numpy as np
 from numpy.core import uint16
@@ -13,7 +11,7 @@ from cv2 import aruco
 steer = 0
 # positive steer = clockwise
 
-speed = 0
+speed = 10
 # positive Speed = move ahead (push the cart)
 
 # Units:
@@ -23,23 +21,29 @@ speed = 0
 
 def main():
     print("[INFO] Program Starting!")
-    # initialize the video stream and allow the camera sensor to warm up
+
+    # global steer and speed variables
     global speed
     global steer
-    print("[INFO] starting video stream...")
-    cap = cv2.VideoCapture(1)
-    time.sleep(2.0)
 
-    # Get coeffecients and camera matrix from yaml calibration file
-    cv_file = cv2.FileStorage("Calibration\calibration_chessboard.yaml", cv2.FileStorage_READ)
+    # Set up OAK-D cam
+    print("[INFO] Setting up oak-d cam ...")
+    pipeline, camRGB, xoutVideo = oakd_init()
+    set_oakd_props(camRGB, xoutVideo)
+
+    print("[INFO] Setting up Aruco dictionary and camera coefficients ...")
+    # Get coefficients and camera matrix from yaml calibration file
+    cv_file = cv2.FileStorage("calibration_chessboard.yaml", cv2.FileStorage_READ)
     camera_matrix = cv_file.getNode('K').mat()
     distortion_coeffs = cv_file.getNode('D').mat()
     cv_file.release()
-
     # define the type of aruco marker to detect
     arucoDict = cv2.aruco.Dictionary_get(cv2.aruco.DICT_6X6_250)
     arucoParams = cv2.aruco.DetectorParameters_create()
 
+    time.sleep(2.0)  # Necessary !!!
+
+    print("[INFO] Initializing TCP connection ...")
     # IP and PORT of the ESP server
     TCP_IP, TCP_PORT = "192.168.4.1", 8000
 
@@ -54,50 +58,49 @@ def main():
     print(s.getsockname())
 
     # Main loop
-    while True:
-        with keyboard.Listener(
-                on_press=on_press,
-                on_release=on_release) as listener:
-            time.sleep(0.2)
+    video = None
+    with dai.Device(pipeline) as device:  # used with OAK-D camera
+        video = device.getOutputQueue(name="video", maxSize=1, blocking=False)  # establish queue
+        while True:
+            videoIn = video.get()   # OAK-D cam
+            frame = videoIn.getCvFrame()    # OAK-D cam
 
-        # grab the frame from the threaded video stream and resize it to have a maximum width of 1000 pixels
-        ret, frame = cap.read()
-        frame = imutils.resize(frame, width=500)
-        # detect ArUco markers in the input frame
-        (corners, ids, rejected) = cv2.aruco.detectMarkers(frame,
-                                                           arucoDict,
-                                                           parameters=arucoParams,
-                                                           cameraMatrix=camera_matrix,
-                                                           distCoeff=distortion_coeffs)
-        # draw borders
-        if len(corners) > 0:
-            speed = 25
-            aruco.drawDetectedMarkers(frame, corners, ids)
-            corners = np.squeeze(corners)
-            print(corners)
-            center = (corners[0][0] + corners[0][1]) / 2
-            # Get the rotation and translation vectors
-            rvecs, tvecs, obj_points = cv2.aruco.estimatePoseSingleMarkers(
-                corners,
-                0.043,
-                camera_matrix,
-                distortion_coeffs)
-            print(tvecs)
-            aruco.drawAxis(frame, camera_matrix, distortion_coeffs, rvecs, tvecs, 0.01)
-        else:
-            speed = 0
-        cv2.imshow("Frame", frame)
-        key = cv2.waitKey(1) & 0xFF
-        # if the `q` key was pressed, break from the loop
-        if key == ord("q"):
-            break
+            # with keyboard.Listener(on_press=on_press,on_release=on_release) as listener:
+            #     pass
 
-        send(s)
-        receive(s, debug=False)
-        # TODO: Determine whether recv function accepts only power-of-2 values (i.e. 32) or it can accept 22 bytes
+            frame = imutils.resize(frame, width=1000)  # regular camera only
+            # detect ArUco markers in the input frame
+            (corners, ids, rejected) = cv2.aruco.detectMarkers(frame,
+                                                               arucoDict,
+                                                               parameters=arucoParams,
+                                                               cameraMatrix=camera_matrix,
+                                                               distCoeff=distortion_coeffs)
+            # draw borders
+            if len(corners) > 0:
+                speed = 25
+                aruco.drawDetectedMarkers(frame, corners, ids)
+                # Get the rotation and translation vectors
+                rvecs, tvecs, obj_points = cv2.aruco.estimatePoseSingleMarkers(
+                    corners,
+                    0.07,
+                    camera_matrix,
+                    distortion_coeffs)
+                aruco.drawAxis(frame, camera_matrix, distortion_coeffs, rvecs, tvecs, 0.01)
+            else:
+                speed = 0
+            cv2.imshow("Frame", frame)
+            key = cv2.waitKey(1) & 0xFF
+            # if the `q` key was pressed, break from the loop
+            if key == ord("q"):
+                break
+            send(s)
+            receive(s, debug=False)
+            # TODO: Determine whether recv function accepts only power-of-2 values (i.e. 32) or it can accept 22 bytes
 
-        listener.join
+        # listener.join
 
+def TCP_init():
+    pass
 
 def send(s):
     # Send Commands
@@ -174,8 +177,26 @@ def on_release(key):
         steer = 0
 
 
-def detector():
-    pass
+def oakd_init():
+    pipeline = dai.Pipeline()  # pipeline object, only one is needed.
+    camRGB = pipeline.create(dai.node.ColorCamera)  # this is the node for the RGB camera (the middle camera)
+    xoutVideo = pipeline.create(dai.node.XLinkOut)
+
+    return pipeline, camRGB, xoutVideo
+
+
+def set_oakd_props(camRGB, xoutVideo):
+    # Use your connection to stream stuff.
+    xoutVideo.setStreamName("video")
+    # properties for the camera
+    camRGB.setBoardSocket(dai.CameraBoardSocket.RGB)
+    camRGB.setResolution(dai.ColorCameraProperties.SensorResolution.THE_1080_P)
+    camRGB.setVideoSize(1920,1080)
+    xoutVideo.input.setBlocking(False)
+    xoutVideo.input.setQueueSize(1)
+    # linking the cam node with the pipeline
+    camRGB.video.link(xoutVideo.input)
+
 
 if __name__ == '__main__':
     main()
