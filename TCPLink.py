@@ -37,7 +37,7 @@ def main():
     time.sleep(2.0)  # Necessary !!!
 
     print("[INFO] Initializing TCP connection ...")
-    s = TCP_init()
+    # s = TCP_init()
 
     # Main loop
     with dai.Device(pipeline) as device:  # used with OAK-D camera
@@ -49,7 +49,6 @@ def main():
             # with keyboard.Listener(on_press=on_press,on_release=on_release) as listener:
             #     pass
 
-            frame = imutils.resize(frame, width=1000)  # regular camera only
             # detect ArUco markers in the input frame
             (corners, ids, rejected) = cv2.aruco.detectMarkers(frame,
                                                                arucoDict,
@@ -67,6 +66,12 @@ def main():
                     camera_matrix,
                     distortion_coeffs)
                 aruco.drawAxis(frame, camera_matrix, distortion_coeffs, rvecs, tvecs, 0.01)
+                corners=np.squeeze(corners)
+                c1 = corners[0]
+                c3 = corners[2]
+                center_point = ((c1[0]+c3[0]/2), (c1[1]+c3[1]/2))
+                tvecs=np.squeeze(tvecs)
+                print(f"distances: [x: {tvecs[0]*100}, y: {tvecs[1]*100}, z: {tvecs[2]*100}] || center: {center_point}")
             else:
                 speed = 0
             cv2.imshow("Frame", frame)
@@ -74,8 +79,12 @@ def main():
             # if the `q` key was pressed, break from the loop
             if key == ord("q"):
                 break
-            send(s)
-            receive(s, debug=True)
+
+            # send(s)
+            # receive(s, debug=True)
+            # if cv2.waitKey(256):
+            #     cv2.destroyAllWindows()
+
             # TODO: Determine whether recv function accepts only power-of-2 values (i.e. 32) or it can accept 22 bytes
 
         # listener.join
