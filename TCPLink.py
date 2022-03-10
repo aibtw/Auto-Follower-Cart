@@ -45,7 +45,9 @@ def main():
         while True:
             videoIn = video.get()   # OAK-D cam
             frame = videoIn.getCvFrame()    # OAK-D cam
-
+            # res = 900
+            # ratio = 1920/res
+            # frame = imutils.resize(frame,res)
             # with keyboard.Listener(on_press=on_press,on_release=on_release) as listener:
             #     pass
 
@@ -70,8 +72,15 @@ def main():
                 c1 = corners[0]
                 c3 = corners[2]
                 center_point = ((c1[0]+c3[0]/2), (c1[1]+c3[1]/2))
-                tvecs=np.squeeze(tvecs)
-                print(f"distances: [x: {tvecs[0]*100}, y: {tvecs[1]*100}, z: {tvecs[2]*100}] || center: {center_point}")
+                tvecs = np.squeeze(tvecs)
+                tx,ty,tz = tvecs[0]*100, tvecs[1]*100, tvecs[2]*100
+                maximum_x = max_x(69, tz)
+                print("distances: [x: {:.2f},".format(tx),
+                      " y: {:.2f}, ".format(ty),
+                      "z: {:.2f}] ".format(tz),
+                      ", center: ({:.2f}, {:.2f})".format(center_point[0], center_point[1]),
+                      ", max_x: {:.6f}".format(tx/maximum_x))
+
             else:
                 speed = 0
             cv2.imshow("Frame", frame)
@@ -210,6 +219,14 @@ def set_oakd_props(camRGB, xoutVideo):
     xoutVideo.input.setQueueSize(1)
     # linking the cam node with the pipeline
     camRGB.video.link(xoutVideo.input)
+
+
+# applying Pythagorean theory
+def max_x(angle, adjacent):
+    tang = adjacent / np.cos(angle * np.pi / 180)
+    print(tang)
+    opposite = np.sqrt((tang ** 2) - (adjacent ** 2))
+    return opposite
 
 
 if __name__ == '__main__':
