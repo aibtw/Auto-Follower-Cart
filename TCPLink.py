@@ -59,7 +59,7 @@ def main():
                                                                distCoeff=distortion_coeffs)
             # draw borders
             if len(corners) > 0:        #add remote control boolean
-                speed = 25
+                #speed = 25
                 aruco.drawDetectedMarkers(frame, corners, ids)
                 # Get the rotation and translation vectors
                 rvecs, tvecs, obj_points = cv2.aruco.estimatePoseSingleMarkers(
@@ -75,6 +75,11 @@ def main():
                       " y: {:.2f}, ".format(ty),
                       "z: {:.2f}] ".format(tz),
                       ", norm x position: {:.3f}".format(tx/maximum_x*10))  # Why multiply by 10?
+                print("current sppeed: " + str(speed))
+                if tz < 50:
+                    speed = 0
+                elif tz < 100:
+                    speed=tz/2
             else:
                 speed = 0
             cv2.imshow("Frame", frame)
