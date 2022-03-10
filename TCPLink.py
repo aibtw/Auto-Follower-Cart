@@ -7,6 +7,7 @@ import numpy as np
 from numpy.core import uint16
 import cv2
 from cv2 import aruco
+import timeit
 
 steer = 0
 # positive steer = clockwise
@@ -38,16 +39,13 @@ def main():
 
     print("[INFO] Initializing TCP connection ...")
     s = TCP_init()
-
+    start = 0
     # Main loop
     with dai.Device(pipeline) as device:  # used with OAK-D camera
         video = device.getOutputQueue(name="video", maxSize=1, blocking=False)  # establish queue
         while True:
             videoIn = video.get()   # OAK-D cam
             frame = videoIn.getCvFrame()    # OAK-D cam
-            # res = 900
-            # ratio = 1920/res
-            # frame = imutils.resize(frame,res)
             # with keyboard.Listener(on_press=on_press,on_release=on_release) as listener:
             #     pass
 
@@ -59,7 +57,8 @@ def main():
                                                                distCoeff=distortion_coeffs)
             # draw borders
             if len(corners) > 0:        #add remote control boolean
-                #speed = 25
+                start = timeit.default_timer()
+
                 aruco.drawDetectedMarkers(frame, corners, ids)
                 # Get the rotation and translation vectors
                 rvecs, tvecs, obj_points = cv2.aruco.estimatePoseSingleMarkers(
@@ -71,17 +70,21 @@ def main():
                 tvecs = np.squeeze(tvecs)
                 tx,ty,tz = tvecs[0]*100, tvecs[1]*100, tvecs[2]*100
                 maximum_x = max_x(81, tz)
+                norm_x = tx/maximum_x*10
                 print("distances: [x: {:.2f},".format(tx),
-                      " y: {:.2f}, ".format(ty),
+                      "y: {:.2f}, ".format(ty),
                       "z: {:.2f}] ".format(tz),
                       ", norm x position: {:.3f}".format(tx/maximum_x*10))  # Why multiply by 10?
-                print("current sppeed: " + str(speed))
-                if tz < 50:
-                    speed = 0
-                elif tz < 100:
-                    speed=tz/2
+                aruco_control(tz, 300, 90, 60, norm_x)
             else:
-                speed = 0
+                stop = timeit.default_timer()
+                print('Time: ', stop - start)
+                if stop - start > 0.5:
+                    speed = 0
+                    steer = 0
+                else:
+                    pass
+
             cv2.imshow("Frame", frame)
             key = cv2.waitKey(1) & 0xFF
             # if the `q` key was pressed, break from the loop
@@ -89,13 +92,46 @@ def main():
                 break
 
             send(s)
-            receive(s, debug=True)
+            receive(s, debug=False)
             # if cv2.waitKey(256):
                 # cv2.destroyAllWindows()
 
             # TODO: Determine whether recv function accepts only power-of-2 values (i.e. 32) or it can accept 22 bytes
 
         # listener.join
+
+
+def aruco_control(dist, max_threshold, forward_threshold, back_threshold, x):
+    global speed
+    global steer
+    if forward_threshold < dist < max_threshold:
+        move_forward()
+    elif dist < back_threshold:
+        move_backward()
+    else:
+        speed = 0
+
+    if x >= 0.25:
+        steer = 20
+    elif x <= -0.25:
+        steer = -20
+    else:
+        steer = 0
+    print("current speed: " + str(speed))
+
+
+def move_forward():
+    global speed
+    speed = 45
+
+
+def move_backward():
+    global speed
+    speed = -20
+
+
+def get_user_speed(dist, t):
+    pass
 
 
 def aruco_init():
@@ -223,7 +259,6 @@ def set_oakd_props(camRGB, xoutVideo):
 # applying Pythagorean theory
 def max_x(angle, adjacent):
     tang = adjacent / np.cos(angle * np.pi / 180)
-    print(tang)
     opposite = np.sqrt((tang ** 2) - (adjacent ** 2))
     return opposite
 
