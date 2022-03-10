@@ -2,7 +2,7 @@ import socket
 import time
 import imutils
 import depthai as dai
-from pynput import keyboard
+#from pynput import keyboard
 import numpy as np
 from numpy.core import uint16
 import cv2
@@ -37,7 +37,7 @@ def main():
     time.sleep(2.0)  # Necessary !!!
 
     print("[INFO] Initializing TCP connection ...")
-    # s = TCP_init()
+    s = TCP_init()
 
     # Main loop
     with dai.Device(pipeline) as device:  # used with OAK-D camera
@@ -58,7 +58,7 @@ def main():
                                                                cameraMatrix=camera_matrix,
                                                                distCoeff=distortion_coeffs)
             # draw borders
-            if len(corners) > 0:
+            if len(corners) > 0:        #add remote control boolean
                 speed = 25
                 aruco.drawDetectedMarkers(frame, corners, ids)
                 # Get the rotation and translation vectors
@@ -68,19 +68,13 @@ def main():
                     camera_matrix,
                     distortion_coeffs)
                 aruco.drawAxis(frame, camera_matrix, distortion_coeffs, rvecs, tvecs, 0.01)
-                corners=np.squeeze(corners)
-                c1 = corners[0]
-                c3 = corners[2]
-                center_point = ((c1[0]+c3[0]/2), (c1[1]+c3[1]/2))
                 tvecs = np.squeeze(tvecs)
                 tx,ty,tz = tvecs[0]*100, tvecs[1]*100, tvecs[2]*100
-                maximum_x = max_x(69, tz)
+                maximum_x = max_x(81, tz)
                 print("distances: [x: {:.2f},".format(tx),
                       " y: {:.2f}, ".format(ty),
                       "z: {:.2f}] ".format(tz),
-                      ", center: ({:.2f}, {:.2f})".format(center_point[0], center_point[1]),
-                      ", max_x: {:.6f}".format(tx/maximum_x))
-
+                      ", norm x position: {:.3f}".format(tx/maximum_x*10))  # Why multiply by 10?
             else:
                 speed = 0
             cv2.imshow("Frame", frame)
@@ -89,10 +83,10 @@ def main():
             if key == ord("q"):
                 break
 
-            # send(s)
-            # receive(s, debug=True)
+            send(s)
+            receive(s, debug=True)
             # if cv2.waitKey(256):
-            #     cv2.destroyAllWindows()
+                # cv2.destroyAllWindows()
 
             # TODO: Determine whether recv function accepts only power-of-2 values (i.e. 32) or it can accept 22 bytes
 
@@ -161,43 +155,43 @@ def receive(s, debug=False):
             print(f"voltage: {int.from_bytes(batV, byteorder='little')}")
 
 
-def on_press(key):
-    global speed
-    global steer
-    if key == keyboard.Key.up:
-        speed = speed+1
-        # print('up: ' + str(speed))
-        if speed > 50:
-            speed = 50
-    if key == keyboard.Key.down:
-        speed = speed-1
-        # print('down: ' + str(speed))
-        if speed < -50:
-            speed = -50
-    if key == keyboard.Key.left:
-        steer = steer-1
-        # print('left: ' + str(steer))
-        if steer < -50:
-            steer = -50
-    if key == keyboard.Key.right:
-        steer = steer+1
-        # print('right: ' + str(steer))
-        if steer > 50:
-            steer = 50
+# def on_press(key):
+#     global speed
+#     global steer
+#     if key == keyboard.Key.up:
+#         speed = speed+1
+#         # print('up: ' + str(speed))
+#         if speed > 50:
+#             speed = 50
+#     if key == keyboard.Key.down:
+#         speed = speed-1
+#         # print('down: ' + str(speed))
+#         if speed < -50:
+#             speed = -50
+#     if key == keyboard.Key.left:
+#         steer = steer-1
+#         # print('left: ' + str(steer))
+#         if steer < -50:
+#             steer = -50
+#     if key == keyboard.Key.right:
+#         steer = steer+1
+#         # print('right: ' + str(steer))
+#         if steer > 50:
+#             steer = 50
 
 
-def on_release(key):
-    global speed
-    global steer
-    # print('{0} released'.format(key))
-    if key == keyboard.Key.up:
-        speed = 0
-    if key == keyboard.Key.down:
-        speed = 0
-    if key == keyboard.Key.right:
-        steer = 0
-    if key == keyboard.Key.left:
-        steer = 0
+# def on_release(key):
+#     global speed
+#     global steer
+#     # print('{0} released'.format(key))
+#     if key == keyboard.Key.up:
+#         speed = 0
+#     if key == keyboard.Key.down:
+#         speed = 0
+#     if key == keyboard.Key.right:
+#         steer = 0
+#     if key == keyboard.Key.left:
+#         steer = 0
 
 
 def oakd_init():
