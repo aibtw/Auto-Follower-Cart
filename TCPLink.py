@@ -2,7 +2,7 @@ import socket
 import time
 import imutils
 import depthai as dai
-#from pynput import keyboard
+# from pynput import keyboard
 import numpy as np
 from numpy.core import uint16
 import cv2
@@ -13,6 +13,8 @@ steer = 0
 # positive steer = clockwise
 
 speed = 0
+
+
 # positive Speed = move ahead (push the cart)
 
 # Units:
@@ -38,14 +40,15 @@ def main():
     time.sleep(2.0)  # Necessary !!!
 
     print("[INFO] Initializing TCP connection ...")
-    s = TCP_init()
+    # s = TCP_init()
     start = 0
+    fc = 0
     # Main loop
     with dai.Device(pipeline) as device:  # used with OAK-D camera
         video = device.getOutputQueue(name="video", maxSize=1, blocking=False)  # establish queue
         while True:
-            videoIn = video.get()   # OAK-D cam
-            frame = videoIn.getCvFrame()    # OAK-D cam
+            videoIn = video.get()  # OAK-D cam
+            frame = videoIn.getCvFrame()  # OAK-D cam
             # with keyboard.Listener(on_press=on_press,on_release=on_release) as listener:
             #     pass
 
@@ -56,49 +59,61 @@ def main():
                                                                cameraMatrix=camera_matrix,
                                                                distCoeff=distortion_coeffs)
             # draw borders
-            if len(corners) > 0:        #add remote control boolean
-                start = timeit.default_timer()
+            if len(corners) > 0:  # add remote control boolean
+                # start = timeit.default_timer()
+                fc = frame_counter(fc, inc=True, dec=False)
 
                 aruco.drawDetectedMarkers(frame, corners, ids)
                 # Get the rotation and translation vectors
                 rvecs, tvecs, obj_points = cv2.aruco.estimatePoseSingleMarkers(
                     corners,
-                    0.07,
+                    0.052,
                     camera_matrix,
                     distortion_coeffs)
                 aruco.drawAxis(frame, camera_matrix, distortion_coeffs, rvecs, tvecs, 0.01)
+
                 tvecs = np.squeeze(tvecs)
-                tx,ty,tz = tvecs[0]*100, tvecs[1]*100, tvecs[2]*100
+                tx, ty, tz = tvecs[0] * 100, tvecs[1] * 100, tvecs[2] * 100
                 maximum_x = max_x(81, tz)
-                norm_x = tx/maximum_x*10
-                print("distances: [x: {:.2f},".format(tx),
-                      "y: {:.2f}, ".format(ty),
-                      "z: {:.2f}] ".format(tz),
-                      ", norm x position: {:.3f}".format(tx/maximum_x*10))  # Why multiply by 10?
+                norm_x = tx / maximum_x * 10
+                # print("distances: [x: {:.2f},".format(tx), "y: {:.2f}, ".format(ty), "z: {:.2f}] ".format(tz),
+                #       ", norm x position: {:.3f}".format(tx / maximum_x * 10))  # Why multiply by 10?
                 aruco_control(tz, 300, 90, 60, norm_x)
             else:
-                stop = timeit.default_timer()
-                print('Time: ', stop - start)
-                if stop - start > 0.5:
-                    speed = 0
-                    steer = 0
-                else:
-                    pass
+                fc = frame_counter(fc, inc=False, dec=True)
+                if fc == 0:
+                    speed, steer = 0, 0
 
+                # stop = timeit.default_timer()
+                # print('Time: ', stop - start)
+                # if stop - start > 0.5:
+                #     speed = 0
+                #     steer = 0
+                # else:
+                #     pass
+            # print(f"Speed: {speed}, steer: {steer}")
             cv2.imshow("Frame", frame)
             key = cv2.waitKey(1) & 0xFF
             # if the `q` key was pressed, break from the loop
             if key == ord("q"):
                 break
 
-            send(s)
-            receive(s, debug=False)
-            # if cv2.waitKey(256):
-                # cv2.destroyAllWindows()
+            # send(s)
+            # receive(s, debug=False)
 
             # TODO: Determine whether recv function accepts only power-of-2 values (i.e. 32) or it can accept 22 bytes
 
         # listener.join
+
+
+def frame_counter(counter, inc: bool, dec: bool):
+    if inc and not dec:
+        if counter == 20: counter = 3
+        else: counter += 1
+    if dec and not inc:
+        if counter == 0: counter = 0
+        else: counter -= 1
+    return counter
 
 
 def aruco_control(dist, max_threshold, forward_threshold, back_threshold, x):
@@ -112,17 +127,20 @@ def aruco_control(dist, max_threshold, forward_threshold, back_threshold, x):
         speed = 0
 
     if x >= 0.25:
-        steer = 20
+        steer_right(x)
+        # print('right')
     elif x <= -0.25:
-        steer = -20
+        steer_left(x)
+        # print('left')
     else:
         steer = 0
-    print("current speed: " + str(speed))
+        # print("center")
+    print(f"steer: {steer}")
 
 
 def move_forward():
     global speed
-    speed = 45
+    speed = 30
 
 
 def move_backward():
@@ -130,8 +148,26 @@ def move_backward():
     speed = -20
 
 
-def get_user_speed(dist, t):
-    pass
+def steer_right(x):
+    global steer
+    max_steer = 40
+    # st = np.log10((x*100)+1) * 20
+    st = max_steer * x
+    if st >= max_steer:
+        print("[WARNING] Steer exceeding limit. Return to limit")
+        st = max_steer
+    steer = st
+
+
+def steer_left(x):
+    global steer
+    max_steer = 40
+    # st = -np.log10((abs(x)*100) + 1) * 20
+    st = max_steer * x
+    if st <= -max_steer:
+        print("[WARNING] Steer exceeding limit. Return to limit")
+        st = -max_steer
+    steer = st
 
 
 def aruco_init():
@@ -190,8 +226,9 @@ def receive(s, debug=False):
         chkSum = feedback[20:22]  # Error detection
         if debug:
             # TODO: Cast all the byte-type variables into the appropriate type (int16-uint16)
-            print(f"speed: {int.from_bytes(cmd2, byteorder='little')} | temp: {int.from_bytes(temp, byteorder='little')} | "
-                  f"voltage: {int.from_bytes(batV, byteorder='little')}")
+            print(
+                f"speed: {int.from_bytes(cmd2, byteorder='little')} | temp: {int.from_bytes(temp, byteorder='little')} | "
+                f"voltage: {int.from_bytes(batV, byteorder='little')}")
             print(f"temp: {int.from_bytes(temp, byteorder='little')}")
             print(f"voltage: {int.from_bytes(batV, byteorder='little')}")
 
@@ -248,8 +285,10 @@ def set_oakd_props(camRGB, xoutVideo):
     xoutVideo.setStreamName("video")
     # properties for the camera
     camRGB.setBoardSocket(dai.CameraBoardSocket.RGB)
-    camRGB.setResolution(dai.ColorCameraProperties.SensorResolution.THE_1080_P)
-    camRGB.setVideoSize(1920,1080)
+    # camRGB.setResolution(dai.ColorCameraProperties.SensorResolution.THE_1080_P)
+    camRGB.setResolution(dai.ColorCameraProperties.SensorResolution.THE_12_MP)
+    camRGB.setFps(fps=120)
+    camRGB.setVideoSize(1920, 1080)
     xoutVideo.input.setBlocking(False)
     xoutVideo.input.setQueueSize(1)
     # linking the cam node with the pipeline
@@ -265,9 +304,3 @@ def max_x(angle, adjacent):
 
 if __name__ == '__main__':
     main()
-
-
-
-
-
-
