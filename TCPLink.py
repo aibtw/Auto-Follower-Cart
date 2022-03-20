@@ -40,66 +40,96 @@ def main():
     time.sleep(2.0)  # Necessary !!!
 
     print("[INFO] Initializing TCP connection ...")
-    # s = TCP_init()
+    s = TCP_init()
     start = 0
     fc = 0
     # Main loop
     with dai.Device(pipeline) as device:  # used with OAK-D camera
         video = device.getOutputQueue(name="video", maxSize=1, blocking=False)  # establish queue
+        # start = timeit.default_timer()  # Enable for debugging
         while True:
-            videoIn = video.get()  # OAK-D cam
-            frame = videoIn.getCvFrame()  # OAK-D cam
             # with keyboard.Listener(on_press=on_press,on_release=on_release) as listener:
             #     pass
 
+            videoIn = video.get()  # OAK-D cam
+            frame = videoIn.getCvFrame()  # OAK-D cam
+            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+
             # detect ArUco markers in the input frame
-            (corners, ids, rejected) = cv2.aruco.detectMarkers(frame,
+            (corners, ids, rejected) = cv2.aruco.detectMarkers(gray,
                                                                arucoDict,
                                                                parameters=arucoParams,
                                                                cameraMatrix=camera_matrix,
                                                                distCoeff=distortion_coeffs)
+            tx, ty, tz, norm_x = np.Inf, np.Inf, np.Inf, np.Inf  # initializing
             # draw borders
             if len(corners) > 0:  # add remote control boolean
-                # start = timeit.default_timer()
+                # start = timeit.default_timer()    # Enable for debugging
+
                 fc = frame_counter(fc, inc=True, dec=False)
 
-                aruco.drawDetectedMarkers(frame, corners, ids)
                 # Get the rotation and translation vectors
                 rvecs, tvecs, obj_points = cv2.aruco.estimatePoseSingleMarkers(
                     corners,
-                    0.052,
+                    0.258,
                     camera_matrix,
                     distortion_coeffs)
+
+                # Draw the detected marker and its axis
+                aruco.drawDetectedMarkers(frame, corners, ids)
                 aruco.drawAxis(frame, camera_matrix, distortion_coeffs, rvecs, tvecs, 0.01)
 
+                # Extract information of the position of the detected marker for interpretation
                 tvecs = np.squeeze(tvecs)
                 tx, ty, tz = tvecs[0] * 100, tvecs[1] * 100, tvecs[2] * 100
                 maximum_x = max_x(81, tz)
                 norm_x = tx / maximum_x * 10
+
+                aruco_control(tz, 300, 90, 60, norm_x)
+
                 # print("distances: [x: {:.2f},".format(tx), "y: {:.2f}, ".format(ty), "z: {:.2f}] ".format(tz),
                 #       ", norm x position: {:.3f}".format(tx / maximum_x * 10))  # Why multiply by 10?
-                aruco_control(tz, 300, 90, 60, norm_x)
+                # Add text to the image
             else:
                 fc = frame_counter(fc, inc=False, dec=True)
                 if fc == 0:
                     speed, steer = 0, 0
-
                 # stop = timeit.default_timer()
-                # print('Time: ', stop - start)
-                # if stop - start > 0.5:
-                #     speed = 0
-                #     steer = 0
-                # else:
-                #     pass
-            # print(f"Speed: {speed}, steer: {steer}")
+
+            # Resize the frame (This is safe, because we already did the processing)
+            frame = imutils.resize(frame, 800)
+
+            # Enable for debugging
+            frame = cv2.flip(frame, 1)
+
+            # Put text on the frame to display it
+            cv2.putText(frame, "Position: x:%.2f, y:%.2f, z:%.2f, x_percentage:%3f" % (tx, ty, tz, norm_x),
+                        (0, 100), fontFace=cv2.FONT_HERSHEY_PLAIN, fontScale=1,
+                        color=(0, 255, 255), thickness=2, lineType=cv2.LINE_AA)
+
             cv2.imshow("Frame", frame)
             key = cv2.waitKey(1) & 0xFF
             # if the `q` key was pressed, break from the loop
             if key == ord("q"):
                 break
 
-            # send(s)
-            # receive(s, debug=False)
+            # end = timeit.default_timer() - start
+            # print(end)
+            # if 3 < end < 6:
+            #     speed = 30
+            #     steer = 0
+            # elif 6 < end < 9:
+            #     speed = 30
+            #     steer = 40
+            # elif 9 < end < 12:
+            #     speed = 30
+            #     steer = -40
+            # else:
+            #     speed = 0
+            #     steer = 0
+
+            send(s)
+            receive(s, debug=False)
 
             # TODO: Determine whether recv function accepts only power-of-2 values (i.e. 32) or it can accept 22 bytes
 
@@ -108,7 +138,7 @@ def main():
 
 def frame_counter(counter, inc: bool, dec: bool):
     if inc and not dec:
-        if counter == 20: counter = 3
+        if counter == 5: counter = 5
         else: counter += 1
     if dec and not inc:
         if counter == 0: counter = 0
@@ -135,7 +165,7 @@ def aruco_control(dist, max_threshold, forward_threshold, back_threshold, x):
     else:
         steer = 0
         # print("center")
-    print(f"steer: {steer}")
+    # print(f"steer: {steer}")
 
 
 def move_forward():
@@ -199,7 +229,7 @@ def TCP_init():
 def send(s):
     # Send Commands
     start = uint16(43981)  # Start (2 bytes)
-    steerp = uint16(steer)  # Steer (2 bytes)
+    steerp = uint16(-steer)  # Steer (2 bytes) (Steer is inverted)
     speedp = uint16(speed)  # Speed (2 bytes)
     chkSum = (start ^ steerp) ^ speedp
     chkSum = uint16(chkSum)  # Error detection bytes (2 bytes)
@@ -285,9 +315,9 @@ def set_oakd_props(camRGB, xoutVideo):
     xoutVideo.setStreamName("video")
     # properties for the camera
     camRGB.setBoardSocket(dai.CameraBoardSocket.RGB)
-    # camRGB.setResolution(dai.ColorCameraProperties.SensorResolution.THE_1080_P)
-    camRGB.setResolution(dai.ColorCameraProperties.SensorResolution.THE_12_MP)
-    camRGB.setFps(fps=120)
+    camRGB.setResolution(dai.ColorCameraProperties.SensorResolution.THE_1080_P)
+    # camRGB.setResolution(dai.ColorCameraProperties.SensorResolution.THE_12_MP)
+    # camRGB.setFps(fps=120)
     camRGB.setVideoSize(1920, 1080)
     xoutVideo.input.setBlocking(False)
     xoutVideo.input.setQueueSize(1)
