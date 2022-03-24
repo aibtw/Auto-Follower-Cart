@@ -72,6 +72,8 @@ def main():
                 rvecs, tvecs, obj_points = cv2.aruco.estimatePoseSingleMarkers(
                     corners,
                     0.258,
+                    # 0.053,
+                    # 0.07,
                     camera_matrix,
                     distortion_coeffs)
 
@@ -85,7 +87,7 @@ def main():
                 maximum_x = max_x(81, tz)
                 norm_x = tx / maximum_x * 10
 
-                aruco_control(tz, 300, 90, 60, norm_x)
+                aruco_control(tz, 400, 90, 60, norm_x)
 
                 # print("distances: [x: {:.2f},".format(tx), "y: {:.2f}, ".format(ty), "z: {:.2f}] ".format(tz),
                 #       ", norm x position: {:.3f}".format(tx / maximum_x * 10))  # Why multiply by 10?
@@ -127,9 +129,8 @@ def main():
             # else:
             #     speed = 0
             #     steer = 0
-
             send(s)
-            receive(s, debug=False)
+            receive(s, debug=True)
 
             # TODO: Determine whether recv function accepts only power-of-2 values (i.e. 32) or it can accept 22 bytes
 
@@ -150,37 +151,39 @@ def aruco_control(dist, max_threshold, forward_threshold, back_threshold, x):
     global speed
     global steer
     if forward_threshold < dist < max_threshold:
-        move_forward()
+        move_forward(dist, max_threshold)
     elif dist < back_threshold:
-        move_backward()
+        move_backward(dist, max_threshold)
     else:
         speed = 0
 
-    if x >= 0.25:
+    if x >= 0.15:
         steer_right(x)
-        # print('right')
-    elif x <= -0.25:
+    elif x <= -0.15:
         steer_left(x)
-        # print('left')
     else:
         steer = 0
-        # print("center")
-    # print(f"steer: {steer}")
 
 
-def move_forward():
+def move_forward(dist, max_dist):
     global speed
-    speed = 30
+    frac = dist/max_dist
+    max_speed = 165
+    speed = int(max_speed * frac)
+    if speed < 60:
+        speed = 60
+    if speed > 165:
+        speed = 165
 
 
-def move_backward():
+def move_backward(dist, max_dist):
     global speed
-    speed = -20
+    speed = -30
 
 
 def steer_right(x):
     global steer
-    max_steer = 40
+    max_steer = 70
     # st = np.log10((x*100)+1) * 20
     st = max_steer * x
     if st >= max_steer:
@@ -191,7 +194,7 @@ def steer_right(x):
 
 def steer_left(x):
     global steer
-    max_steer = 40
+    max_steer = 70
     # st = -np.log10((abs(x)*100) + 1) * 20
     st = max_steer * x
     if st <= -max_steer:
@@ -229,7 +232,7 @@ def TCP_init():
 def send(s):
     # Send Commands
     start = uint16(43981)  # Start (2 bytes)
-    steerp = uint16(-steer)  # Steer (2 bytes) (Steer is inverted)
+    steerp = uint16(steer)  # Steer (2 bytes) (Steer is inverted)
     speedp = uint16(speed)  # Speed (2 bytes)
     chkSum = (start ^ steerp) ^ speedp
     chkSum = uint16(chkSum)  # Error detection bytes (2 bytes)
