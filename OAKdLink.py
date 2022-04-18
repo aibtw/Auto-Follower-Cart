@@ -31,6 +31,7 @@ def set_oakd_props(camRGB, xoutVideo):
     ctrl.setAutoFocusTrigger()
 
 
+
 def aruco_init():
     # Get coefficients and camera matrix from yaml calibration file
     cv_file = cv2.FileStorage("calibration_chessboard.yaml", cv2.FileStorage_READ)
