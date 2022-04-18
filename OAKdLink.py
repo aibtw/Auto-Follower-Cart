@@ -24,6 +24,11 @@ def set_oakd_props(camRGB, xoutVideo):
     xoutVideo.input.setQueueSize(1)
     # linking the cam node with the pipeline
     camRGB.video.link(xoutVideo.input)
+    # camRGB.autofocus(dai.CameraControl.AutoFocusMode.OFF)
+    # dai.CameraControl.AutoFocusMode.OFF
+    ctrl = dai.CameraControl()
+    ctrl.setAutoFocusMode(dai.CameraControl.AutoFocusMode.AUTO)
+    ctrl.setAutoFocusTrigger()
 
 
 def aruco_init():
