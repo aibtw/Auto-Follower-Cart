@@ -9,10 +9,10 @@ speed = 0  # positive Speed = move ahead (push the cart)
 
 def frame_counter(counter, inc: bool, dec: bool):
     if inc and not dec:
-        if counter == 5: counter = 5
+        if counter >= 5: counter = 5
         else: counter += 1
     if dec and not inc:
-        if counter == 0: counter = 0
+        if counter <= 0: counter = 0
         else: counter -= 1
     return counter
 
