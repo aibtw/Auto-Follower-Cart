@@ -9,6 +9,7 @@ from cv2 import aruco
 from TCPLink import TCP_init, send, receive
 from OAKdLink import oakd_init, set_oakd_props, aruco_init
 from Controller import aruco_control, frame_counter, max_x
+from depth_video_v2 import *
 
 
 class Mode(enum.Enum):
@@ -40,10 +41,9 @@ def main():
     time.sleep(2.0)  # Necessary !!!
 
     print("[INFO] Initializing TCP connection ...")
-    # s = TCP_init()  # Socket object
+    s = TCP_init()  # Socket object
 
     fc = 0  # Frame counter
-
     # Main loop
     with dai.Device(pipeline) as device:  # used with OAK-D camera
         video = device.getOutputQueue(name="video", maxSize=1, blocking=False)  # establish queue
@@ -97,9 +97,9 @@ def main():
 
                 rvecs = np.squeeze(rvecs)
                 rx, ry, rz = obtain_angles(rvecs)
-
-                speed, steer = aruco_control(tz, 400, 90, 60, norm_x)
-
+                # Mode values: follow = 1, Push=2 , remote = 3
+                speed, steer = aruco_control(mode.value, tz, 400, 90, 50, norm_x, rz)
+                print(steer)
             key = show_frame(frame, tx, ty, tz, norm_x, rx, ry, rz, aruco_id=ids if len(corners) == 1 else math.inf)
             # if the `q` key was pressed, break from the loop
             if key == ord("q"):
@@ -109,8 +109,8 @@ def main():
             if key == ord("f"):
                 mode = Mode.follow
 
-            # send(s, speed, steer)
-            # receive(s, debug=False)
+            send(s, speed, steer)
+            receive(s, debug=False)
 
 
 def show_frame(frame, tx=math.inf, ty=math.inf, tz=math.inf, norm_x=math.inf, rx=math.inf, ry=math.inf, rz=math.inf,

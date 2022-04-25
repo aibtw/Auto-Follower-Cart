@@ -17,22 +17,29 @@ def frame_counter(counter, inc: bool, dec: bool):
     return counter
 
 
-def aruco_control(dist, max_threshold, forward_threshold, back_threshold, x):
+def aruco_control(mode, dist, max_threshold, forward_threshold, back_threshold, x, rot):
     global speed
     global steer
-    if forward_threshold < dist < max_threshold:
+    if forward_threshold < dist < max_threshold and mode == 1:
         move_forward(dist, max_threshold)
-    elif dist < back_threshold:
+    elif dist < back_threshold and mode == 2:
         move_backward(dist, max_threshold)
     else:
         speed = 0
 
-    if x >= 0.15:
-        steer_right(x)
-    elif x <= -0.15:
-        steer_left(x)
-    else:
+    if mode == 1:
+        if x >= 0.15:
+            steer_right(x)
+        elif x <= -0.15:
+            steer_left(x)
+        else:
+            steer = 0
+    elif mode == 2:
+        pass
+    if -30 <= rot <= 30:
         steer = 0
+    else:
+        steer = int(rot/3)
     return speed, steer
 
 
