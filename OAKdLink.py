@@ -16,8 +16,8 @@ def set_oakd_props(camRGB, xoutVideo):
     xoutVideo.setStreamName("video")
     # properties for the camera
     camRGB.setBoardSocket(dai.CameraBoardSocket.RGB)
-    camRGB.setResolution(dai.ColorCameraProperties.SensorResolution.THE_1080_P)
-    # camRGB.setResolution(dai.ColorCameraProperties.SensorResolution.THE_12_MP)
+    # camRGB.setResolution(dai.ColorCameraProperties.SensorResolution.THE_1080_P)
+    camRGB.setResolution(dai.ColorCameraProperties.SensorResolution.THE_12_MP)
     # camRGB.setFps(fps=120)
     camRGB.setVideoSize(1920, 1080)
     xoutVideo.input.setBlocking(False)
@@ -34,7 +34,7 @@ def set_oakd_props(camRGB, xoutVideo):
 
 def aruco_init():
     # Get coefficients and camera matrix from yaml calibration file
-    cv_file = cv2.FileStorage("calibration_chessboard.yaml", cv2.FileStorage_READ)
+    cv_file = cv2.FileStorage("/home/autocart/Auto-Follower-Cart/calibration_chessboard.yaml", cv2.FileStorage_READ)
     camera_matrix = cv_file.getNode('K').mat()
     distortion_coeffs = cv_file.getNode('D').mat()
     cv_file.release()
