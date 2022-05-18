@@ -5,6 +5,7 @@ import math
 import depthai as dai
 import numpy as np
 import cv2
+import socket
 from cv2 import aruco
 from TCPLink import TCP_init, send, receive
 from OAKdLink import oakd_init, set_oakd_props, aruco_init
@@ -36,7 +37,7 @@ def main():
     camera_matrix, distortion_coeffs, arucoDict, arucoParams = aruco_init()
 
     # Set default mode
-    mode = Mode.push
+    mode = Mode.follow
 
     time.sleep(2.0)  # Necessary !!!
 
@@ -99,7 +100,6 @@ def main():
                 rx, ry, rz = obtain_angles(rvecs)
                 # Mode values: follow = 1, Push=2 , remote = 3
                 speed, steer = aruco_control(mode.value, tz, 400, 90, 50, norm_x, rz)
-                print(steer)
             key = show_frame(frame, tx, ty, tz, norm_x, rx, ry, rz, aruco_id=ids if len(corners) == 1 else math.inf)
             # if the `q` key was pressed, break from the loop
             if key == ord("q"):
@@ -108,9 +108,11 @@ def main():
                 mode = Mode.push
             if key == ord("f"):
                 mode = Mode.follow
-
-            send(s, speed, steer)
-            receive(s, debug=False)
+            try:
+                send(s, speed, steer)
+                receive(s, debug=False)
+            except socket.error as e:
+                s = TCP_init();
 
 
 def show_frame(frame, tx=math.inf, ty=math.inf, tz=math.inf, norm_x=math.inf, rx=math.inf, ry=math.inf, rz=math.inf,
