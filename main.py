@@ -43,7 +43,7 @@ def main():
     time.sleep(2.0)  # Necessary !!!
 
     print("[INFO] Initializing TCP connection ...")
-    # s = TCP_init()  # Socket object
+    s = TCP_init()  # Socket object
 
     fc = 0  # Frame counter
 
@@ -91,8 +91,8 @@ def main():
             elif len(corners) == 1:  # Exactly one Aruco detected
                 fc = frame_counter(fc, inc=True, dec=False)
 
-                # Following mode: 15.8cm.   Pushing mode: 3.5cm
-                aruco_size = 0.158 if np.squeeze(ids) == 200 else 0.035
+                # Following mode: 14cm.   Pushing mode: 5cm
+                aruco_size = 0.14 if np.squeeze(ids) == 200 else 0.05
                 # Get the rotation and translation vectors
                 rvecs, tvecs, obj_points = cv2.aruco.estimatePoseSingleMarkers(
                     corners,
@@ -117,10 +117,10 @@ def main():
                 if mode is Mode.follow and ROI > 25:  # if there is an obstacle:
                     speed = 0
                     steer = 0
-                    print("Detected an obstacle!")
+                    # print("Detected an obstacle!")
                 else:                                 # no obstacles:
                     speed, steer = aruco_control(mode.value, tz, 400, 90, 50, norm_x, rz)
-            print(f"speed: {speed}, steer: {steer}")
+            # print(f"speed: {speed}, steer: {steer}")
             key = show_frame(frame, tx, ty, tz, norm_x, rx, ry, rz, aruco_id=ids if len(corners) == 1 else math.inf)
             # cv2.imshow("section", section)
 
@@ -132,11 +132,11 @@ def main():
             if key == ord("f"):
                 mode = Mode.follow
 
-            # try:
-            #     send(s, speed, steer)
-            #     receive(s, debug=True)
-            # except socket.error as e:
-            #     s = TCP_init()
+            try:
+                send(s, speed, steer)
+                receive(s, debug=False)
+            except socket.error as e:
+                s = TCP_init()
 
 
 def show_frame(frame, tx=math.inf, ty=math.inf, tz=math.inf, norm_x=math.inf, rx=math.inf, ry=math.inf, rz=math.inf,
@@ -158,7 +158,7 @@ def show_frame(frame, tx=math.inf, ty=math.inf, tz=math.inf, norm_x=math.inf, rx
     cv2.putText(frame, "ID: %.2f" % aruco_id,
                 (0, 300), fontFace=cv2.FONT_HERSHEY_PLAIN, fontScale=1,
                 color=(0, 255, 255), thickness=2, lineType=cv2.LINE_AA)
-    cv2.imshow("Frame", frame)
+    # cv2.imshow("Frame", frame)
     key = cv2.waitKey(1) & 0xFF
     return key
 

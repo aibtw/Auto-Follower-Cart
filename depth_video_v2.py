@@ -78,7 +78,7 @@ def get_map(disparityQueue, disparityMultiplier):
     disparity = getFrame(disparityQueue)
     disparity = (disparity * disparityMultiplier).astype(np.uint8)
     ret, threshed = cv2.threshold(disparity, 100, 255, cv2.THRESH_BINARY)
-    print(np.shape(disparity))
+    # print(np.shape(disparity))
     # REGION OF INTRESET
     section = threshed[0:400, 120:500]
     ROI = np.average(section)
