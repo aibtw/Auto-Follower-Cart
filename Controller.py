@@ -35,11 +35,10 @@ def aruco_control(mode, dist, max_threshold, forward_threshold, back_threshold, 
         else:
             steer = 0
     elif mode == 2:
-        pass
-    if -30 <= rot <= 30:
-        steer = 0
-    else:
-        steer = int(rot/3)
+        if -30 <= rot <= 30:
+            steer = 0
+        else:
+            steer = int(rot/3)
     return speed, steer
 
 
