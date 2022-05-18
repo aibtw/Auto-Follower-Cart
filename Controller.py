@@ -33,10 +33,9 @@ def aruco_control(mode, dist, max_threshold, forward_threshold, back_threshold, 
     if mode == 1 and moving:
         if x >= 0.15:
             steer_right(x)
-            print("steering right")
         elif x <= -0.15:
-            print("steering left")
             steer_left(x)
+            # print(steer)
         else:
             steer = 0
     elif mode == 2:

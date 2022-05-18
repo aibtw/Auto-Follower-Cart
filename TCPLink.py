@@ -19,8 +19,13 @@ def TCP_init():
 
 def send(s, speed, steer):
     # Send Commands
+    
     start = uint16(43981)  # Start (2 bytes)
+    if(steer<0):
+    	steer = steer + 65535
     steerp = uint16(steer)  # Steer (2 bytes) (Steer is inverted)
+    if(speed<0):
+    	speed = speed + 65535
     speedp = uint16(speed)  # Speed (2 bytes)
     chkSum = (start ^ steerp) ^ speedp
     chkSum = uint16(chkSum)  # Error detection bytes (2 bytes)

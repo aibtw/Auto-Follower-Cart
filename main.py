@@ -37,7 +37,7 @@ def main():
     camera_matrix, distortion_coeffs, arucoDict, arucoParams = aruco_init()
 
     # Set default mode
-    mode = Mode.follow
+    mode = Mode.push
 
     time.sleep(2.0)  # Necessary !!!
 
@@ -109,6 +109,7 @@ def main():
             if key == ord("f"):
                 mode = Mode.follow
             try:
+                #print(steer)
                 send(s, speed, steer)
                 receive(s, debug=False)
             except socket.error as e:
@@ -134,7 +135,7 @@ def show_frame(frame, tx=math.inf, ty=math.inf, tz=math.inf, norm_x=math.inf, rx
     cv2.putText(frame, "ID: %.2f" % aruco_id,
                 (0, 300), fontFace=cv2.FONT_HERSHEY_PLAIN, fontScale=1,
                 color=(0, 255, 255), thickness=2, lineType=cv2.LINE_AA)
-    cv2.imshow("Frame", frame)
+    # cv2.imshow("Frame", frame)
     key = cv2.waitKey(1) & 0xFF
     return key
 
