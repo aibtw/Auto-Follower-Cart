@@ -112,7 +112,7 @@ def main():
                 send(s, speed, steer)
                 receive(s, debug=False)
             except socket.error as e:
-                s = TCP_init();
+                s = TCP_init()
 
 
 def show_frame(frame, tx=math.inf, ty=math.inf, tz=math.inf, norm_x=math.inf, rx=math.inf, ry=math.inf, rz=math.inf,
