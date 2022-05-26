@@ -47,31 +47,25 @@ def main():
 
     fc = 0  # Frame counter
 
-    # -----------yukky section --------*********3546345tertaberfazsdf aefase------------#
     monoRight, monoLeft, stereo = depth_video_v2.depth_init(pipeline)
     xoutDisp, xoutRectifiedRight, xoutRectifiedLeft = depth_video_v2.setter(pipeline, stereo)
     # Pipeline is defined, now we can connect to the device
-    # -----------yukky section --------*********3546345tertaberfazsdf aefase------------#
 
     # Main loop
     with dai.Device(pipeline) as device:  # used with OAK-D camera
         video = device.getOutputQueue(name="video", maxSize=1, blocking=False)  # establish queue
 
-        # -----------yukky section --------*********3546345tertaberfazsdf aefase------------#
         # Output queues will be used to get the rgb frames and nn data from the outputs defined above
         disparityQueue, rectifiedRightQueue, rectifiedLeftQueue = depth_video_v2.get_queues(device)
         # Calculate a multiplier for colormapping disparity map
         disparityMultiplier = 255 / stereo.getMaxDisparity()
-        # -----------yukky section --------*********3546345tertaberfazsdf aefase------------#
 
         # start = timeit.default_timer()  # Enable for debugging
         while True:
             if mode is Mode.remote:  # TODO: Stop TCP Connection
                 continue
 
-            # -----------------yukky section ----------------------#
             ROI, section = depth_video_v2.get_map(disparityQueue, disparityMultiplier)  # Region of interest
-            # ----------------yukky section -----------------------#
 
             videoIn = video.get()  # OAK-D cam
             frame = videoIn.getCvFrame()  # OAK-D cam
@@ -119,13 +113,12 @@ def main():
                 rvecs = np.squeeze(rvecs)
                 rx, ry, rz = obtain_angles(rvecs)
                 # Mode values: follow = 1, Push=2 , remote = 3
-                # -----------yukky section --------*********3546345tertaberfazsdf aefase------------#
-                if mode is Mode.follow and ROI > 25:
+
+                if mode is Mode.follow and ROI > 25:  # if there is an obstacle:
                     speed = 0
                     steer = 0
-                    print("MIDGET!")
-                # -----------yukky section --------*********3546345tertaberfazsdf aefase------------#
-                else:
+                    print("Detected an obstacle!")
+                else:                                 # no obstacles:
                     speed, steer = aruco_control(mode.value, tz, 400, 90, 50, norm_x, rz)
             print(f"speed: {speed}, steer: {steer}")
             key = show_frame(frame, tx, ty, tz, norm_x, rx, ry, rz, aruco_id=ids if len(corners) == 1 else math.inf)
@@ -136,7 +129,6 @@ def main():
                 mode = Mode.push
             if key == ord("f"):
                 mode = Mode.follow
-
 
             # try:
             #     send(s, speed, steer)
@@ -170,7 +162,7 @@ def show_frame(frame, tx=math.inf, ty=math.inf, tz=math.inf, norm_x=math.inf, rx
 
 
 def obtain_angles(rvec):
-    # https://github.com/tizianofiorenzani/how_do_drones_work/blob/master/opencv/aruco_pose_estimation.py
+    # Source: https://github.com/tizianofiorenzani/how_do_drones_work/blob/master/opencv/aruco_pose_estimation.py
     # -- Obtain the rotation matrix tag->camera
     R_ct = np.matrix(cv2.Rodrigues(rvec)[0])
     R_tc = R_ct.T
