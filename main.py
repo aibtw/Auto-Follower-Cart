@@ -7,6 +7,7 @@ import numpy as np
 import cv2
 import socket
 from cv2 import aruco
+import depth_video_v2
 from TCPLink import TCP_init, send, receive
 from OAKdLink import oakd_init, set_oakd_props, aruco_init
 from Controller import aruco_control, frame_counter, max_x
@@ -42,16 +43,35 @@ def main():
     time.sleep(2.0)  # Necessary !!!
 
     print("[INFO] Initializing TCP connection ...")
-    s = TCP_init()  # Socket object
+    # s = TCP_init()  # Socket object
 
     fc = 0  # Frame counter
+
+    # -----------yukky section --------*********3546345tertaberfazsdf aefase------------#
+    monoRight, monoLeft, stereo = depth_video_v2.depth_init(pipeline)
+    xoutDisp, xoutRectifiedRight, xoutRectifiedLeft = depth_video_v2.setter(pipeline, stereo)
+    # Pipeline is defined, now we can connect to the device
+    # -----------yukky section --------*********3546345tertaberfazsdf aefase------------#
+
     # Main loop
     with dai.Device(pipeline) as device:  # used with OAK-D camera
         video = device.getOutputQueue(name="video", maxSize=1, blocking=False)  # establish queue
+
+        # -----------yukky section --------*********3546345tertaberfazsdf aefase------------#
+        # Output queues will be used to get the rgb frames and nn data from the outputs defined above
+        disparityQueue, rectifiedRightQueue, rectifiedLeftQueue = depth_video_v2.get_queues(device)
+        # Calculate a multiplier for colormapping disparity map
+        disparityMultiplier = 255 / stereo.getMaxDisparity()
+        # -----------yukky section --------*********3546345tertaberfazsdf aefase------------#
+
         # start = timeit.default_timer()  # Enable for debugging
         while True:
             if mode is Mode.remote:  # TODO: Stop TCP Connection
                 continue
+
+            # -----------------yukky section ----------------------#
+            ROI, section = depth_video_v2.get_map(disparityQueue, disparityMultiplier)  # Region of interest
+            # ----------------yukky section -----------------------#
 
             videoIn = video.get()  # OAK-D cam
             frame = videoIn.getCvFrame()  # OAK-D cam
@@ -99,7 +119,15 @@ def main():
                 rvecs = np.squeeze(rvecs)
                 rx, ry, rz = obtain_angles(rvecs)
                 # Mode values: follow = 1, Push=2 , remote = 3
-                speed, steer = aruco_control(mode.value, tz, 400, 90, 50, norm_x, rz)
+                # -----------yukky section --------*********3546345tertaberfazsdf aefase------------#
+                if mode is Mode.follow and ROI > 25:
+                    speed = 0
+                    steer = 0
+                    print("MIDGET!")
+                # -----------yukky section --------*********3546345tertaberfazsdf aefase------------#
+                else:
+                    speed, steer = aruco_control(mode.value, tz, 400, 90, 50, norm_x, rz)
+            print(f"speed: {speed}, steer: {steer}")
             key = show_frame(frame, tx, ty, tz, norm_x, rx, ry, rz, aruco_id=ids if len(corners) == 1 else math.inf)
             # if the `q` key was pressed, break from the loop
             if key == ord("q"):
@@ -108,12 +136,13 @@ def main():
                 mode = Mode.push
             if key == ord("f"):
                 mode = Mode.follow
-            try:
-                #print(steer)
-                send(s, speed, steer)
-                receive(s, debug=False)
-            except socket.error as e:
-                s = TCP_init()
+
+
+            # try:
+            #     send(s, speed, steer)
+            #     receive(s, debug=False)
+            # except socket.error as e:
+            #     s = TCP_init()
 
 
 def show_frame(frame, tx=math.inf, ty=math.inf, tz=math.inf, norm_x=math.inf, rx=math.inf, ry=math.inf, rz=math.inf,
@@ -135,7 +164,7 @@ def show_frame(frame, tx=math.inf, ty=math.inf, tz=math.inf, norm_x=math.inf, rx
     cv2.putText(frame, "ID: %.2f" % aruco_id,
                 (0, 300), fontFace=cv2.FONT_HERSHEY_PLAIN, fontScale=1,
                 color=(0, 255, 255), thickness=2, lineType=cv2.LINE_AA)
-    # cv2.imshow("Frame", frame)
+    cv2.imshow("Frame", frame)
     key = cv2.waitKey(1) & 0xFF
     return key
 
