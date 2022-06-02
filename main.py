@@ -122,6 +122,8 @@ def main():
                     speed, steer = aruco_control(mode.value, tz, 400, 90, 50, norm_x, rz)
             print(f"speed: {speed}, steer: {steer}")
             key = show_frame(frame, tx, ty, tz, norm_x, rx, ry, rz, aruco_id=ids if len(corners) == 1 else math.inf)
+            # cv2.imshow("section", section)
+
             # if the `q` key was pressed, break from the loop
             if key == ord("q"):
                 break
@@ -132,7 +134,7 @@ def main():
 
             # try:
             #     send(s, speed, steer)
-            #     receive(s, debug=False)
+            #     receive(s, debug=True)
             # except socket.error as e:
             #     s = TCP_init()
 
