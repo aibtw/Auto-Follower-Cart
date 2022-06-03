@@ -25,7 +25,7 @@ def aruco_control(mode, dist, max_threshold, forward_threshold, back_threshold, 
         move_forward(dist, max_threshold)
         moving = True
     elif dist < back_threshold and mode == 2:
-        move_backward(dist, max_threshold)
+        move_backward(dist)
         moving = True
     else:
         speed = 0
@@ -57,9 +57,12 @@ def move_forward(dist, max_dist):
         speed = 165
 
 
-def move_backward(dist, max_dist):
+def move_backward(dist):
     global speed
-    speed = -30
+    max_speed = -110
+    speed = -int(-110*np.log10(dist)+220)
+    if speed < max_speed:
+        speed = -max_speed
 
 
 def steer_right(x):
@@ -67,7 +70,7 @@ def steer_right(x):
     max_steer = 70
     # st = np.log10((x*100)+1) * 20
     st = max_steer * x
-    if st >= max_steer:
+    if st > max_steer:
         print("[WARNING] Steer exceeding limit. Return to limit")
         st = max_steer
     steer = st
@@ -78,7 +81,7 @@ def steer_left(x):
     max_steer = 70
     # st = -np.log10((abs(x)*100) + 1) * 20
     st = max_steer * x
-    if st <= -max_steer:
+    if st < -max_steer:
         print("[WARNING] Steer exceeding limit. Return to limit")
         st = -max_steer
     steer = st
