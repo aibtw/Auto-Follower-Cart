@@ -119,8 +119,9 @@ def main():
                     steer = 0
                     # print("Detected an obstacle!")
                 else:                                 # no obstacles:
-                    speed, steer = aruco_control(mode.value, tz, 400, 90, 50, norm_x, rz)
-            # print(f"speed: {speed}, steer: {steer}")
+                    speed, steer = aruco_control(mode.value, tz, max_threshold=400, forward_threshold=100,
+                                                 back_threshold=50, x=norm_x, rot=rz, prev_speed=speed)
+            print(f"speed: {speed}, steer: {steer}")
             key = show_frame(frame, tx, ty, tz, norm_x, rx, ry, rz, aruco_id=ids if len(corners) == 1 else math.inf)
             # cv2.imshow("section", section)
 
@@ -158,7 +159,7 @@ def show_frame(frame, tx=math.inf, ty=math.inf, tz=math.inf, norm_x=math.inf, rx
     cv2.putText(frame, "ID: %.2f" % aruco_id,
                 (0, 300), fontFace=cv2.FONT_HERSHEY_PLAIN, fontScale=1,
                 color=(0, 255, 255), thickness=2, lineType=cv2.LINE_AA)
-    # cv2.imshow("Frame", frame)
+    cv2.imshow("Frame", frame)
     key = cv2.waitKey(1) & 0xFF
     return key
 
