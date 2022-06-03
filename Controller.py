@@ -61,6 +61,7 @@ def move_backward(dist):
     global speed
     max_speed = -110
     speed = -int(-110*np.log10(dist)+220)
+    if speed > 0: speed = 0
     if speed < max_speed:
         speed = -max_speed
 
