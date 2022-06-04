@@ -6,6 +6,7 @@ import depthai as dai
 import numpy as np
 import cv2
 import socket
+import lgpio
 from cv2 import aruco
 import depth_video_v2
 from TCPLink import TCP_init, send, receive
@@ -39,11 +40,32 @@ def main():
 
     # Set default mode
     mode = Mode.push
-
+    
+    # Set GPIO
+    h = lgpio.gpiochip_open(0)
+    pushbtn = 23
+    followbtn = 24
+    pushled = 22
+    followled = 27
+    buzzer = 17
+    lgpio.gpio_claim_output(h,pushled)
+    lgpio.gpio_claim_output(h,followled)
+    lgpio.gpio_claim_output(h,buzzer)
+    lgpio.gpio_claim_input(h,pushbtn)
+    lgpio.gpio_claim_input(h,followbtn)
+    
+    lgpio.gpio_write(h, pushled, 1)
+    lgpio.gpio_write(h, followled, 1)
+    lgpio.gpio_write(h, buzzer, 1)        
+    
     time.sleep(2.0)  # Necessary !!!
+    
+    lgpio.gpio_write(h, pushled, 1)
+    lgpio.gpio_write(h, followled, 0)
+    lgpio.gpio_write(h, buzzer, 0)        
 
     print("[INFO] Initializing TCP connection ...")
-    s = TCP_init()  # Socket object
+    # s = TCP_init()  # Socket object
 
     fc = 0  # Frame counter
 
@@ -65,6 +87,9 @@ def main():
             if mode is Mode.remote:  # TODO: Stop TCP Connection
                 continue
 
+            if mode is Mode.push:
+                lgpio.gpio_write(h,buzzer,0)  # reset the buzzer
+                
             ROI, section = depth_video_v2.get_map(disparityQueue, disparityMultiplier)  # Region of interest
 
             videoIn = video.get()  # OAK-D cam
@@ -87,6 +112,8 @@ def main():
                 fc = frame_counter(fc, inc=False, dec=True)
                 if fc == 0:
                     speed, steer = 0, 0
+                    if mode is Mode.follow:
+                        lgpio.gpio_write(h,buzzer,1)  # No user, set the buzzer high
 
             elif len(corners) == 1:  # Exactly one Aruco detected
                 fc = frame_counter(fc, inc=True, dec=False)
@@ -113,15 +140,18 @@ def main():
                 rvecs = np.squeeze(rvecs)
                 rx, ry, rz = obtain_angles(rvecs)
                 # Mode values: follow = 1, Push=2 , remote = 3
-
                 if mode is Mode.follow and ROI > 25:  # if there is an obstacle:
                     speed = 0
                     steer = 0
-                    # print("Detected an obstacle!")
-                else:                                 # no obstacles:
+                    print("Detected an obstacle!")
+                    lgpio.gpio_write(h,buzzer,1)
+                    
+                else:                             # no obstacles:
+                    lgpio.gpio_write(h,buzzer,0)  # reset the buzzer
                     speed, steer = aruco_control(mode.value, tz, max_threshold=400, forward_threshold=100,
                                                  back_threshold=50, x=norm_x, rot=rz, prev_speed=speed)
-            print(f"speed: {speed}, steer: {steer}")
+                    
+            # print(f"speed: {speed}, steer: {steer}")
             key = show_frame(frame, tx, ty, tz, norm_x, rx, ry, rz, aruco_id=ids if len(corners) == 1 else math.inf)
             # cv2.imshow("section", section)
 
@@ -132,13 +162,26 @@ def main():
                 mode = Mode.push
             if key == ord("f"):
                 mode = Mode.follow
-
+            
+            if lgpio.gpio_read(h,pushbtn)==1 and lgpio.gpio_read(h,followbtn)==1:
+                mode = Mode.remote
+                lgpio.gpio_write(h, pushled, 1)
+                lgpio.gpio_write(h, followled, 1)
+            if lgpio.gpio_read(h,pushbtn)==1:
+                mode = Mode.push
+                lgpio.gpio_write(h, pushled, 1)
+                lgpio.gpio_write(h, followled, 0)
+            if lgpio.gpio_read(h,followbtn)==1:
+                mode = Mode.follow
+                lgpio.gpio_write(h, pushled, 0)
+                lgpio.gpio_write(h, followled, 1)
+"""
             try:
                 send(s, speed, steer)
-                receive(s, debug=False)
+                receive(s, debug=True)
             except socket.error as e:
                 s = TCP_init()
-
+"""
 
 def show_frame(frame, tx=math.inf, ty=math.inf, tz=math.inf, norm_x=math.inf, rx=math.inf, ry=math.inf, rz=math.inf,
                aruco_id=math.inf):
@@ -159,7 +202,7 @@ def show_frame(frame, tx=math.inf, ty=math.inf, tz=math.inf, norm_x=math.inf, rx
     cv2.putText(frame, "ID: %.2f" % aruco_id,
                 (0, 300), fontFace=cv2.FONT_HERSHEY_PLAIN, fontScale=1,
                 color=(0, 255, 255), thickness=2, lineType=cv2.LINE_AA)
-    cv2.imshow("Frame", frame)
+    # cv2.imshow("Frame", frame)
     key = cv2.waitKey(1) & 0xFF
     return key
 
