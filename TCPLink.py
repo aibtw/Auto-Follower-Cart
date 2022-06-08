@@ -2,6 +2,11 @@ import socket
 import numpy as np
 from numpy.core import uint16
 
+"""
+@author: Ahmed Patwa
+Last updated on 8/6/2022
+"""
+
 
 def TCP_init():
     # IP and PORT of the ESP server

@@ -43,29 +43,31 @@ def main():
     
     # Set GPIO
     h = lgpio.gpiochip_open(0)
-    pushbtn = 23
-    followbtn = 24
-    pushled = 22
-    followled = 27
-    buzzer = 17
+    pushbtn = 23                # pushing mode button
+    followbtn = 24              # follow mode button
+    pushled = 22                # pushing mode led
+    followled = 27              # follow mode led
+    buzzer = 17                 # buzzer pin
     lgpio.gpio_claim_output(h,pushled)
     lgpio.gpio_claim_output(h,followled)
     lgpio.gpio_claim_output(h,buzzer)
     lgpio.gpio_claim_input(h,pushbtn)
     lgpio.gpio_claim_input(h,followbtn)
-    
+
+    # write all the outputs to 1 so the user is notified when the program starts
     lgpio.gpio_write(h, pushled, 1)
     lgpio.gpio_write(h, followled, 1)
     lgpio.gpio_write(h, buzzer, 1)        
     
     time.sleep(2.0)  # Necessary !!!
-    
+
+    # set the outputs back to zero except the default mode
     lgpio.gpio_write(h, pushled, 1)
     lgpio.gpio_write(h, followled, 0)
     lgpio.gpio_write(h, buzzer, 0)        
 
     print("[INFO] Initializing TCP connection ...")
-    # s = TCP_init()  # Socket object
+    s = TCP_init()  # Socket object
 
     fc = 0  # Frame counter
 
@@ -88,9 +90,10 @@ def main():
                 continue
 
             if mode is Mode.push:
-                lgpio.gpio_write(h,buzzer,0)  # reset the buzzer
-                
-            ROI, section = depth_video_v2.get_map(disparityQueue, disparityMultiplier)  # Region of interest
+                lgpio.gpio_write(h,buzzer,0)  # reset the buzzer to 0
+
+            # region of interest of depth output:
+            ROI, section = depth_video_v2.get_map(disparityQueue, disparityMultiplier)
 
             videoIn = video.get()  # OAK-D cam
             frame = videoIn.getCvFrame()  # OAK-D cam
@@ -113,7 +116,7 @@ def main():
                 if fc == 0:
                     speed, steer = 0, 0
                     if mode is Mode.follow:
-                        lgpio.gpio_write(h,buzzer,1)  # No user, set the buzzer high
+                        lgpio.gpio_write(h,buzzer,1)  # No user, set the buzzer high to notify him
 
             elif len(corners) == 1:  # Exactly one Aruco detected
                 fc = frame_counter(fc, inc=True, dec=False)
@@ -150,38 +153,45 @@ def main():
                     lgpio.gpio_write(h,buzzer,0)  # reset the buzzer
                     speed, steer = aruco_control(mode.value, tz, max_threshold=400, forward_threshold=100,
                                                  back_threshold=50, x=norm_x, rot=rz, prev_speed=speed)
-                    
-            # print(f"speed: {speed}, steer: {steer}")
-            key = show_frame(frame, tx, ty, tz, norm_x, rx, ry, rz, aruco_id=ids if len(corners) == 1 else math.inf)
+
+            # if the `q` key was pressed, break from the loop (enable for debugging)
+            # key = show_frame(frame, tx, ty, tz, norm_x, rx, ry, rz, aruco_id=ids if len(corners) == 1 else math.inf)
             # cv2.imshow("section", section)
 
-            # if the `q` key was pressed, break from the loop
-            if key == ord("q"):
-                break
-            if key == ord("p"):
-                mode = Mode.push
-            if key == ord("f"):
-                mode = Mode.follow
-            
-            if lgpio.gpio_read(h,pushbtn)==1 and lgpio.gpio_read(h,followbtn)==1:
-                mode = Mode.remote
-                lgpio.gpio_write(h, pushled, 1)
-                lgpio.gpio_write(h, followled, 1)
+            # if key == ord("q"):
+            #     break
+            # if key == ord("p"):
+            #     mode = Mode.push
+            # if key == ord("f"):
+            #     mode = Mode.follow
+
+            # change the mode based on the pressed buttons
+            # TODO: allow changing to remote mode using buttons (currently, needs to close the RPi to connect phone app)
+            # Remote mode
+            # if lgpio.gpio_read(h,pushbtn)==1 and lgpio.gpio_read(h,followbtn)==1:
+            #     mode = Mode.remote
+            #     lgpio.gpio_write(h, pushled, 1)
+            #     lgpio.gpio_write(h, followled, 1)
+
+            # push mode
             if lgpio.gpio_read(h,pushbtn)==1:
                 mode = Mode.push
                 lgpio.gpio_write(h, pushled, 1)
                 lgpio.gpio_write(h, followled, 0)
+
+            # follow mode
             if lgpio.gpio_read(h,followbtn)==1:
                 mode = Mode.follow
                 lgpio.gpio_write(h, pushled, 0)
                 lgpio.gpio_write(h, followled, 1)
-"""
+
+            # send and receive through TCP connection
             try:
                 send(s, speed, steer)
                 receive(s, debug=True)
             except socket.error as e:
                 s = TCP_init()
-"""
+
 
 def show_frame(frame, tx=math.inf, ty=math.inf, tz=math.inf, norm_x=math.inf, rx=math.inf, ry=math.inf, rz=math.inf,
                aruco_id=math.inf):
@@ -228,6 +238,7 @@ def obtain_angles(rvec):
 
 # Checks if a matrix is a valid rotation matrix.
 def isRotationMatrix(R):
+    # refer to source https://learnopencv.com/rotation-matrix-to-euler-angles/
     Rt = np.transpose(R)
     shouldBeIdentity = np.dot(Rt, R)
     I = np.identity(3, dtype=R.dtype)
@@ -239,6 +250,7 @@ def isRotationMatrix(R):
 # The result is the same as MATLAB except the order
 # of the euler angles100big ( x and z are swapped ).
 def rotationMatrixToEulerAngles(R):
+    # refer to source https://learnopencv.com/rotation-matrix-to-euler-angles/
     assert (isRotationMatrix(R))
 
     sy = math.sqrt(R[0, 0] * R[0, 0] + R[1, 0] * R[1, 0])

@@ -2,6 +2,11 @@ import depthai as dai
 import cv2
 from cv2 import aruco
 
+"""
+@author: Al Fahad Felemban, Ahmed Patwa
+Last updated on 8/6/2022
+"""
+
 
 def oakd_init():
     pipeline = dai.Pipeline()  # pipeline object, only one is needed.

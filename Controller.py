@@ -1,5 +1,10 @@
 import numpy as np
 
+"""
+@author: Ahmed Patwa
+Last updated on 8/6/2022
+"""
+
 # Defining global speed and steer and setting it to 0
 steer = 0  # positive steer = clockwise
 speed = 0  # positive Speed = move ahead (in the direction of the camera)
@@ -107,6 +112,7 @@ def move_backward(dist):
         speed = max_speed
 
 
+# TODO: steer_right and steer_left functions are actually duplicate! clean the code and put them in one function
 def steer_right(x):
     """
     A function to calculate an adaptive steer value to the right
