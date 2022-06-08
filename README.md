@@ -64,3 +64,7 @@ ____
   - Perform pose estimation.
   - Find the position of the user in real world using the information of pose estimation.
   - Use this information to control the robot to move forward, backward, left, or right.
+
+## The phone app
+The app is provided as AutoCart.slx file. This needs to be build using Simulink. Please refer to proper instructions
+from the MATLAB documentation. 
